@@ -1,0 +1,62 @@
+import pandas as pd
+import numpy as np
+from sklearn.ensemble import RandomForestClassifier
+from sklearn.model_selection import train_test_split
+from sklearn.pipeline import Pipeline
+from sklearn.impute import SimpleImputer
+from sklearn.preprocessing import OrdinalEncoder
+from sklearn.compose import ColumnTransformer
+import pickle
+
+# Charger les données
+df = pd.read_excel("flud_nantes.xlsx")
+
+# Convertir 'mf1_hd' en datetime
+df['mf1_hd'] = pd.to_datetime(df['mf1_hd'], errors='coerce')
+
+# Extraire heure et jour de la semaine (en anglais pour l'encodeur)
+df['hour'] = df['mf1_hd'].dt.hour
+df['day_of_week'] = df['mf1_hd'].dt.day_name()
+
+# Colonnes features
+features = ['mf1_debit', 'mf1_vit', 'hour', 'day_of_week']
+
+# Supprimer lignes avec valeurs manquantes sur ces colonnes ou cible
+df = df.dropna(subset=features + ['etat_trafic'])
+
+X = df[features]
+y = df['etat_trafic']
+
+# Séparation train/test
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+
+# Pipelines de prétraitement
+numeric_features = ['mf1_debit', 'mf1_vit', 'hour']
+numeric_transformer = SimpleImputer(strategy='mean')
+
+categorical_features = ['day_of_week']
+categorical_transformer = Pipeline(steps=[
+    ('imputer', SimpleImputer(strategy='most_frequent')),
+    ('encoder', OrdinalEncoder(categories=[["Monday","Tuesday","Wednesday","Thursday","Friday","Saturday","Sunday"]]))
+])
+
+preprocessor = ColumnTransformer(
+    transformers=[
+        ('num', numeric_transformer, numeric_features),
+        ('cat', categorical_transformer, categorical_features)
+    ])
+
+# Pipeline complet
+pipeline = Pipeline(steps=[
+    ('preprocessor', preprocessor),
+    ('classifier', RandomForestClassifier(random_state=42))
+])
+
+# Entraînement
+pipeline.fit(X_train, y_train)
+
+# Sauvegarde du pipeline complet
+with open("pipeline_traffic.pkl", "wb") as f:
+    pickle.dump(pipeline, f)
+
+print("Modèle entraîné et sauvegardé dans pipeline_traffic.pkl")
