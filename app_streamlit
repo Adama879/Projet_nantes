@@ -1,0 +1,42 @@
+import streamlit as st
+import pandas as pd
+import pickle
+from datetime import datetime
+
+# Charger le modèle
+with open("pipeline_traffic.pkl", "rb") as f:
+    model = pickle.load(f)
+
+st.title("🛣️ Trafic routier à Nantes")
+
+st.markdown("Veuillez renseigner les informations ci-dessous :")
+
+# Champs de saisie utilisateur
+debit = st.number_input("Débit (mf1_debit)", min_value=0.0)
+vitesse = st.number_input("Vitesse (mf1_vit)", min_value=0.0)
+
+# Date et heure
+date_input = st.text_input("Date et heure (format YYYY-MM-DD HH:MM)", "2025-06-02 08:00")
+
+# Bouton pour lancer la prédiction
+if st.button("Valider"):
+    try:
+        # Conversion de la date
+        date_parsed = datetime.strptime(date_input, "%Y-%m-%d %H:%M")
+        heure = date_parsed.hour
+        jour_semaine = date_parsed.strftime("%A")  # Nom du jour en anglais (ex: 'Monday')
+
+        # Création du DataFrame au bon format
+        features = pd.DataFrame([{
+            "mf1_debit": debit,
+            "mf1_vit": vitesse,
+            "hour": heure,
+            "day_of_week": jour_semaine
+        }])
+
+        # Prédiction
+        prediction = model.predict(features)[0]
+        st.success(f"✅ État du trafic prédit : **{prediction}**")
+
+    except ValueError:
+        st.error("❌ Format de date invalide. Utilisez le format YYYY-MM-DD HH:MM")
